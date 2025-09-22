@@ -1,0 +1,38 @@
+# 멀티모달 감정 분석 프로그램 의존성
+
+# PyTorch 관련
+torch>=2.0.0
+torchvision>=0.15.0
+torchaudio>=2.0.0
+
+# 변환 및 모델 관련
+transformers>=4.21.0
+tokenizers>=0.13.0
+
+# 음성 처리
+sounddevice>=0.4.6
+scipy>=1.10.0
+librosa>=0.10.0
+openai-whisper>=20231117
+
+# 영상 처리
+opencv-python>=4.8.0
+
+# 기타 유틸리티
+numpy>=1.24.0
+pandas>=2.0.0
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# 설정 관리
+python-dotenv>=1.0.0
+
+# 로깅 및 진행 상황
+tqdm>=4.64.0
+
+# 한국어 NLP (KoBERT)
+sentencepiece>=0.1.99
+protobuf>=3.20.0
+
+# 오디오 형식 지원
+pydub>=0.25.1
