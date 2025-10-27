@@ -139,16 +139,31 @@ class TextEmotionAnalyzer:
                 
                 if isinstance(checkpoint, dict):
                     if 'model_state_dict' in checkpoint:
-                        self.model.load_state_dict(checkpoint['model_state_dict'])
+                        state_dict = checkpoint['model_state_dict']
                     elif 'state_dict' in checkpoint:
-                        self.model.load_state_dict(checkpoint['state_dict'])
+                        state_dict = checkpoint['state_dict']
                     else:
                         # state_dict 자체인 경우
-                        self.model.load_state_dict(checkpoint)
+                        state_dict = checkpoint
                 else:
                     # 전체 모델이 저장된 경우
                     self.model = checkpoint
-                    
+                    self.model.to(self.device)
+                    self.model.eval()
+                    logger.info(f"텍스트 감정 모델을 로드했습니다: {self.model_path}")
+                    return
+                
+                # 키 이름 변환: kobert -> bert
+                converted_state_dict = {}
+                for key, value in state_dict.items():
+                    if key.startswith('kobert.'):
+                        new_key = key.replace('kobert.', 'bert.', 1)
+                        converted_state_dict[new_key] = value
+                    else:
+                        converted_state_dict[key] = value
+                
+                # 모델에 로드
+                self.model.load_state_dict(converted_state_dict)
                 logger.info(f"텍스트 감정 모델을 로드했습니다: {self.model_path}")
             else:
                 logger.warning(f"텍스트 감정 모델 파일을 찾을 수 없습니다: {self.model_path}")
