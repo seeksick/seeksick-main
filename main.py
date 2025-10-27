@@ -173,12 +173,12 @@ class MultimodalEmotionAnalyzer:
         if voice_probs is not None:
             print("🎤 음성 감정 분석:")
             for i, (emotion, prob) in enumerate(zip(EMOTIONS, voice_probs)):
-                print(f"  {emotion}: {prob:.3f}")
+                print(f"  {emotion}: {float(prob):.3f}")
         
         if text_probs is not None:
             print("📝 텍스트 감정 분석:")
             for i, (emotion, prob) in enumerate(zip(EMOTIONS, text_probs)):
-                print(f"  {emotion}: {prob:.3f}")
+                print(f"  {emotion}: {float(prob):.3f}")
     
     def run(self):
         """메인 실행 함수"""
@@ -204,14 +204,15 @@ class MultimodalEmotionAnalyzer:
                 
                 # 얼굴 감정 분석 (주기적으로)
                 if frame_count % (30 // VIDEO_FPS) == 0:  # 30fps 기준
-                    face_probs = self.face_analyzer.analyze_face(frame)
-                    if face_probs is not None:
+                    face_result = self.face_analyzer.analyze_face(frame)
+                    if face_result is not None:
+                        face_probs, face_coords = face_result
                         timestamp = datetime.now()
                         self.results['face'].append(face_probs)
                         
                         print(f"\n👤 얼굴 감정 분석 ({timestamp.strftime('%H:%M:%S')}):")
                         for emotion, prob in zip(EMOTIONS, face_probs):
-                            print(f"  {emotion}: {prob:.3f}")
+                            print(f"  {emotion}: {float(prob):.3f}")
                 
                 # 웹캠 화면에 감정 정보 표시
                 self.display_frame_with_emotions(frame)
@@ -234,7 +235,7 @@ class MultimodalEmotionAnalyzer:
             face_probs = self.results['face'][-1]
             max_idx = np.argmax(face_probs)
             emotion = EMOTIONS[max_idx]
-            confidence = face_probs[max_idx]
+            confidence = float(face_probs[max_idx])
             
             # 텍스트 표시
             text = f"Face: {emotion} ({confidence:.2f})"
@@ -245,7 +246,7 @@ class MultimodalEmotionAnalyzer:
             if voice_probs is not None:
                 max_idx = np.argmax(voice_probs)
                 emotion = EMOTIONS[max_idx]
-                confidence = voice_probs[max_idx]
+                confidence = float(voice_probs[max_idx])
                 
                 text = f"Voice: {emotion} ({confidence:.2f})"
                 cv2.putText(frame, text, (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
@@ -255,7 +256,7 @@ class MultimodalEmotionAnalyzer:
             if text_probs is not None:
                 max_idx = np.argmax(text_probs)
                 emotion = EMOTIONS[max_idx]
-                confidence = text_probs[max_idx]
+                confidence = float(text_probs[max_idx])
                 
                 text = f"Text: {emotion} ({confidence:.2f})"
                 cv2.putText(frame, text, (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
