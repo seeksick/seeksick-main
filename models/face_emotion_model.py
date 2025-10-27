@@ -84,9 +84,22 @@ class FaceEmotionAnalyzer:
                 
                 # state_dict 형태에 따라 처리
                 if isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint:
-                    self.model.load_state_dict(checkpoint['model_state_dict'])
+                    state_dict = checkpoint['model_state_dict']
                 else:
-                    self.model.load_state_dict(checkpoint)
+                    state_dict = checkpoint
+                
+                # ✨ key 이름 변환: resnet -> backbone
+                new_state_dict = {}
+                for key, value in state_dict.items():
+                    # resnet.으로 시작하는 key를 backbone.으로 변경
+                    if key.startswith('resnet.'):
+                        new_key = key.replace('resnet.', 'backbone.')
+                        new_state_dict[new_key] = value
+                    else:
+                        new_state_dict[key] = value
+                
+                # strict=False로 로드 (일부 key가 안 맞아도 로드)
+                self.model.load_state_dict(new_state_dict, strict=False)
                     
                 logger.info(f"얼굴 감정 모델을 로드했습니다: {self.model_path}")
             else:
