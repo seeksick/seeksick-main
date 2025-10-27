@@ -3,3 +3,5 @@
 *.pth
 
 .env
+
+models/__pycache__/*
