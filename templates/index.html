@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>감정 분석 AI 상담사</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- 헤더 -->
+    <header>
+        <div class="container">
+            <h1>🧠 감정 분석 AI 상담사</h1>
+            <p class="subtitle">실시간 감정 분석과 공감적 대화</p>
+            <div class="status-indicator">
+                <span id="status-dot" class="dot"></span>
+                <span id="status-text">연결 중...</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- 메인 컨텐츠 -->
+    <main class="container">
+        <div class="main-layout">
+            <!-- 왼쪽: 감정 분석 표시 -->
+            <section class="emotion-section">
+                <div class="section-card">
+                    <h2>📊 실시간 감정 분석</h2>
+                    
+                    <!-- 주요 감정 표시 -->
+                    <div class="primary-emotion">
+                        <div id="primary-emotion-emoji" class="emotion-emoji">😐</div>
+                        <div class="emotion-info">
+                            <h3 id="primary-emotion-name">Neutral</h3>
+                            <p id="primary-emotion-confidence">20%</p>
+                        </div>
+                    </div>
+
+                    <!-- 5가지 감정 확률 -->
+                    <div class="emotion-bars">
+                        <!-- Happy -->
+                        <div class="emotion-item">
+                            <div class="emotion-label">
+                                <span class="emoji">😊</span>
+                                <span class="name">Happy</span>
+                            </div>
+                            <div class="bar-container">
+                                <div class="bar bar-happy" id="bar-happy" style="width: 20%"></div>
+                                <span class="percentage" id="pct-happy">20%</span>
+                            </div>
+                        </div>
+
+                        <!-- Depressed -->
+                        <div class="emotion-item">
+                            <div class="emotion-label">
+                                <span class="emoji">😢</span>
+                                <span class="name">Depressed</span>
+                            </div>
+                            <div class="bar-container">
+                                <div class="bar bar-depressed" id="bar-depressed" style="width: 20%"></div>
+                                <span class="percentage" id="pct-depressed">20%</span>
+                            </div>
+                        </div>
+
+                        <!-- Surprised -->
+                        <div class="emotion-item">
+                            <div class="emotion-label">
+                                <span class="emoji">😮</span>
+                                <span class="name">Surprised</span>
+                            </div>
+                            <div class="bar-container">
+                                <div class="bar bar-surprised" id="bar-surprised" style="width: 20%"></div>
+                                <span class="percentage" id="pct-surprised">20%</span>
+                            </div>
+                        </div>
+
+                        <!-- Angry -->
+                        <div class="emotion-item">
+                            <div class="emotion-label">
+                                <span class="emoji">😠</span>
+                                <span class="name">Angry</span>
+                            </div>
+                            <div class="bar-container">
+                                <div class="bar bar-angry" id="bar-angry" style="width: 20%"></div>
+                                <span class="percentage" id="pct-angry">20%</span>
+                            </div>
+                        </div>
+
+                        <!-- Neutral -->
+                        <div class="emotion-item">
+                            <div class="emotion-label">
+                                <span class="emoji">😐</span>
+                                <span class="name">Neutral</span>
+                            </div>
+                            <div class="bar-container">
+                                <div class="bar bar-neutral" id="bar-neutral" style="width: 20%"></div>
+                                <span class="percentage" id="pct-neutral">20%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 모달리티 정보 -->
+                    <div class="modalities-info">
+                        <h4>사용된 데이터</h4>
+                        <div id="modalities-display" class="modalities-tags">
+                            <span class="tag">👤 얼굴</span>
+                            <span class="tag">🎤 음성</span>
+                            <span class="tag">📝 텍스트</span>
+                        </div>
+                    </div>
+
+                    <!-- 마지막 업데이트 시간 -->
+                    <div class="last-update">
+                        마지막 업데이트: <span id="last-update-time">-</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 오른쪽: AI 채팅 -->
+            <section class="chat-section">
+                <div class="section-card">
+                    <h2>💬 AI 상담사와 대화하기</h2>
+                    
+                    <!-- 채팅 메시지 영역 -->
+                    <div id="chat-messages" class="chat-messages">
+                        <div class="message ai-message">
+                            <div class="message-content">
+                                <strong>AI 상담사</strong>
+                                <p>안녕하세요! 저는 당신의 감정을 이해하고 함께 나누고 싶은 AI 상담사입니다. 
+                                   편안하게 이야기해주세요. 어떤 일이든 함께 나눌 수 있습니다. 😊</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 실시간 음성 인식 상태 -->
+                    <div class="voice-control-area">
+                        <button id="voice-toggle" class="voice-toggle-button active">
+                            <span class="icon">🎤</span>
+                            <span class="status-text">실시간 음성 인식 중...</span>
+                        </button>
+                    </div>
+                    
+                    <!-- 음성 인식 상태 표시 -->
+                    <div id="voice-status" class="voice-status-realtime">
+                        <div class="status-indicator">
+                            <span class="listening-dot"></span>
+                            <span id="voice-status-text">듣고 있습니다...</span>
+                        </div>
+                        <div id="interim-text" class="interim-text"></div>
+                    </div>
+                    
+                    <!-- 입력 영역 (텍스트 입력용) -->
+                    <div class="chat-input-area">
+                        <textarea 
+                            id="chat-input" 
+                            placeholder="또는 텍스트로 입력하세요..."
+                            rows="3"
+                        ></textarea>
+                        <button id="send-button" class="send-button">
+                            <span>전송</span>
+                            <span class="icon">📤</span>
+                        </button>
+                    </div>
+
+                    <!-- 채팅 컨트롤 -->
+                    <div class="chat-controls">
+                        <button id="clear-chat" class="control-button">
+                            🗑️ 대화 초기화
+                        </button>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- 푸터 -->
+    <footer>
+        <div class="container">
+            <p>© 2025 감정 분석 AI 상담사 | Powered by Late Fusion & ChatGPT</p>
+        </div>
+    </footer>
+
+    <!-- 로딩 오버레이 -->
+    <div id="loading-overlay" class="loading-overlay" style="display: none;">
+        <div class="spinner"></div>
+        <p>AI가 생각하고 있습니다...</p>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
+
