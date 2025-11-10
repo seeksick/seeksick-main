@@ -23,19 +23,20 @@
     --color-neutral: #95a5a6;
     
     /* 배경 & 텍스트 */
-    --bg-primary: #f8f9fa;
+    --bg-primary: #f5f7fa;
     --bg-card: #ffffff;
-    --text-primary: #2c3e50;
-    --text-secondary: #7f8c8d;
-    --border-color: #e1e8ed;
+    --text-primary: #1a202c;
+    --text-secondary: #718096;
+    --border-color: #e2e8f0;
     
     /* 그림자 */
-    --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
-    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
-    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+    --shadow-xl: 0 12px 40px rgba(0, 0, 0, 0.15);
     
     /* 애니메이션 */
-    --transition: all 0.3s ease;
+    --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 body {
@@ -44,12 +45,16 @@ body {
     color: var(--text-primary);
     line-height: 1.6;
     overflow-x: hidden;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
 }
 
 .container {
-    max-width: 1400px;
+    max-width: 100%;
+    width: 100%;
     margin: 0 auto;
-    padding: 0 20px;
+    padding: 0 30px;
 }
 
 /* ===========================
@@ -60,29 +65,37 @@ header {
     background: var(--bg-gradient);
     color: white;
     padding: 30px 0;
-    box-shadow: var(--shadow-md);
+    box-shadow: var(--shadow-lg);
     position: sticky;
     top: 0;
     z-index: 100;
 }
 
+header .container {
+    text-align: center;
+}
+
 header h1 {
-    font-size: 2rem;
-    font-weight: 700;
-    margin-bottom: 5px;
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: 8px;
+    letter-spacing: -0.5px;
 }
 
 header .subtitle {
-    font-size: 1rem;
-    opacity: 0.9;
-    margin-bottom: 10px;
+    font-size: 1.15rem;
+    opacity: 0.95;
+    margin-bottom: 15px;
+    font-weight: 500;
 }
 
 .status-indicator {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 8px;
-    font-size: 0.9rem;
+    justify-content: center;
+    gap: 10px;
+    font-size: 1rem;
+    font-weight: 600;
 }
 
 .dot {
@@ -111,42 +124,58 @@ header .subtitle {
    =========================== */
 
 main {
-    padding: 40px 20px;
+    flex: 1;
+    padding: 30px 0;
+    max-width: 100%;
 }
 
 .main-layout {
     display: grid;
-    grid-template-columns: 1fr 1.5fr;  /* 왼쪽 1, 오른쪽 1.5 비율 */
-    gap: 30px;
-    margin-bottom: 40px;
-    align-items: start;  /* 상단 정렬 */
+    grid-template-columns: 2fr 3fr;  /* 왼쪽 2, 오른쪽 3 비율 - 더 균형잡힌 레이아웃 */
+    gap: 25px;
+    margin-bottom: 0;
+    align-items: stretch;  /* 전체 높이 */
+    height: calc(100vh - 200px);  /* 헤더와 푸터 제외한 전체 높이 */
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 1200px) {
     .main-layout {
         grid-template-columns: 1fr;
+        height: auto;
+        gap: 20px;
+    }
+    
+    .section-card {
+        height: auto;
+    }
+    
+    .chat-messages {
+        height: 500px;
     }
 }
 
 .section-card {
     background: var(--bg-card);
-    border-radius: 16px;
+    border-radius: 20px;
     padding: 30px;
     box-shadow: var(--shadow-lg);
     transition: var(--transition);
-}
-
-.section-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
 }
 
 .section-card h2 {
-    font-size: 1.5rem;
+    font-size: 1.75rem;
     margin-bottom: 25px;
     color: var(--primary-color);
-    border-bottom: 3px solid var(--accent-color);
-    padding-bottom: 10px;
+    border-bottom: 4px solid var(--accent-color);
+    padding-bottom: 15px;
+    flex-shrink: 0;
+    font-weight: 800;
+    text-align: center;
+    letter-spacing: -0.5px;
 }
 
 /* ===========================
@@ -155,18 +184,22 @@ main {
 
 .primary-emotion {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 20px;
-    padding: 30px;
-    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-    border-radius: 12px;
+    justify-content: center;
+    gap: 15px;
+    padding: 35px 25px;
+    background: linear-gradient(135deg, #f5f7fa 0%, #e0e7ff 100%);
+    border-radius: 20px;
     margin-bottom: 30px;
-    box-shadow: var(--shadow-sm);
+    box-shadow: var(--shadow-md);
+    text-align: center;
 }
 
 .emotion-emoji {
-    font-size: 5rem;
+    font-size: 6rem;
     animation: bounce 2s infinite;
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.1));
 }
 
 @keyframes bounce {
@@ -174,55 +207,68 @@ main {
     50% { transform: translateY(-10px); }
 }
 
+.emotion-info {
+    width: 100%;
+}
+
 .emotion-info h3 {
-    font-size: 2rem;
+    font-size: 2.5rem;
     color: var(--primary-color);
     text-transform: uppercase;
-    font-weight: 700;
+    font-weight: 900;
+    letter-spacing: 1px;
+    margin-bottom: 5px;
 }
 
 .emotion-info p {
-    font-size: 1.5rem;
+    font-size: 2rem;
     color: var(--text-secondary);
-    font-weight: 500;
+    font-weight: 700;
 }
 
 /* 감정 바 */
 
 .emotion-bars {
-    margin-bottom: 25px;
+    margin-bottom: 20px;
+    flex: 1;
+    overflow-y: auto;
 }
 
 .emotion-item {
-    margin-bottom: 20px;
+    margin-bottom: 18px;
 }
 
 .emotion-label {
     display: flex;
     align-items: center;
-    gap: 10px;
-    margin-bottom: 8px;
-    font-weight: 500;
+    justify-content: space-between;
+    gap: 15px;
+    margin-bottom: 10px;
+    font-weight: 600;
 }
 
 .emotion-label .emoji {
-    font-size: 1.5rem;
+    font-size: 1.6rem;
 }
 
 .emotion-label .name {
-    font-size: 1rem;
+    font-size: 1.1rem;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.8px;
+    font-weight: 700;
+    flex: 1;
 }
 
 .bar-container {
     position: relative;
-    height: 30px;
-    background: #ecf0f1;
-    border-radius: 15px;
+    height: 45px;
+    background: #e8edf3;
+    border-radius: 25px;
     overflow: hidden;
     display: flex;
     align-items: center;
+    box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.08);
+    border: 2px solid #d5dce6;
 }
 
 .bar {
@@ -256,49 +302,58 @@ main {
 
 .percentage {
     position: absolute;
-    right: 15px;
-    font-weight: 700;
-    font-size: 0.9rem;
+    right: 20px;
+    font-weight: 800;
+    font-size: 1.1rem;
     color: var(--text-primary);
     z-index: 1;
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
 }
 
 /* 모달리티 정보 */
 
 .modalities-info {
-    margin-top: 25px;
+    margin-top: auto;
     padding: 15px;
-    background: #f8f9fa;
-    border-radius: 8px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
 }
 
 .modalities-info h4 {
-    font-size: 0.9rem;
+    font-size: 1rem;
     color: var(--text-secondary);
-    margin-bottom: 10px;
+    margin-bottom: 12px;
     text-transform: uppercase;
+    font-weight: 700;
+    text-align: center;
+    letter-spacing: 1px;
 }
 
 .modalities-tags {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 10px;
+    justify-content: center;
 }
 
 .tag {
-    padding: 6px 12px;
+    padding: 10px 20px;
     background: var(--primary-color);
     color: white;
-    border-radius: 20px;
-    font-size: 0.85rem;
-    font-weight: 500;
+    border-radius: 25px;
+    font-size: 1rem;
+    font-weight: 700;
+    box-shadow: var(--shadow-sm);
+    letter-spacing: 0.5px;
 }
 
 .last-update {
     margin-top: 15px;
-    font-size: 0.85rem;
+    font-size: 0.95rem;
     color: var(--text-secondary);
-    text-align: right;
+    text-align: center;
+    font-weight: 600;
 }
 
 /* ===========================
@@ -306,13 +361,14 @@ main {
    =========================== */
 
 .chat-messages {
-    height: 500px;
+    flex: 1;
     overflow-y: auto;
     padding: 20px;
     background: #f8f9fa;
     border-radius: 12px;
-    margin-bottom: 20px;
+    margin-bottom: 15px;
     scroll-behavior: smooth;
+    min-height: 0;
 }
 
 .chat-messages::-webkit-scrollbar {
@@ -341,10 +397,12 @@ main {
 }
 
 .message-content {
-    padding: 15px 20px;
-    border-radius: 12px;
-    max-width: 80%;
+    padding: 18px 24px;
+    border-radius: 16px;
+    max-width: 85%;
     word-wrap: break-word;
+    font-size: 1.05rem;
+    line-height: 1.6;
 }
 
 .user-message .message-content {
@@ -362,9 +420,10 @@ main {
 
 .message-content strong {
     display: block;
-    margin-bottom: 5px;
-    font-size: 0.85rem;
-    opacity: 0.8;
+    margin-bottom: 8px;
+    font-size: 0.95rem;
+    opacity: 0.9;
+    font-weight: 700;
 }
 
 .message-content p {
@@ -379,32 +438,37 @@ main {
     gap: 10px;
     margin-bottom: 10px;
     align-items: flex-end;
+    flex-shrink: 0;
 }
 
 /* 실시간 음성 인식 컨트롤 */
 
 .voice-control-area {
-    margin-bottom: 15px;
+    margin-bottom: 12px;
+    flex-shrink: 0;
 }
 
 .voice-toggle-button {
     width: 100%;
-    padding: 15px 20px;
+    padding: 18px 24px;
     background: linear-gradient(135deg, #95a5a6, #7f8c8d);
     color: white;
     border: none;
-    border-radius: 12px;
-    font-size: 1rem;
+    border-radius: 20px;
+    font-size: 1.1rem;
+    font-weight: 700;
     cursor: pointer;
     transition: var(--transition);
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
+    gap: 12px;
+    box-shadow: var(--shadow-md);
+    letter-spacing: 0.5px;
 }
 
 .voice-toggle-button .icon {
-    font-size: 1.5rem;
+    font-size: 1.8rem;
 }
 
 .voice-toggle-button.active {
@@ -429,11 +493,13 @@ main {
 /* 실시간 음성 상태 표시 */
 
 .voice-status-realtime {
-    padding: 15px;
+    padding: 16px 20px;
     background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
-    border: 2px solid #4caf50;
-    border-radius: 12px;
-    margin-bottom: 15px;
+    border: 3px solid #4caf50;
+    border-radius: 16px;
+    margin-bottom: 12px;
+    flex-shrink: 0;
+    box-shadow: var(--shadow-sm);
 }
 
 .status-indicator {
@@ -466,14 +532,15 @@ main {
 }
 
 .interim-text {
-    min-height: 30px;
-    padding: 10px;
+    min-height: 40px;
+    padding: 12px 16px;
     background: white;
-    border-radius: 8px;
-    font-size: 0.95rem;
+    border-radius: 12px;
+    font-size: 1.05rem;
     color: var(--text-primary);
     font-style: italic;
-    border: 1px dashed #4caf50;
+    border: 2px dashed #4caf50;
+    font-weight: 500;
 }
 
 .interim-text:empty::before {
@@ -483,13 +550,15 @@ main {
 
 #chat-input {
     flex: 1;
-    padding: 15px;
-    border: 2px solid var(--border-color);
-    border-radius: 12px;
+    padding: 16px 20px;
+    border: 3px solid var(--border-color);
+    border-radius: 16px;
     font-family: inherit;
-    font-size: 1rem;
+    font-size: 1.05rem;
     resize: none;
     transition: var(--transition);
+    max-height: 120px;
+    font-weight: 500;
 }
 
 #chat-input:focus {
@@ -499,18 +568,20 @@ main {
 }
 
 .send-button {
-    padding: 15px 30px;
+    padding: 16px 32px;
     background: var(--bg-gradient);
     color: white;
     border: none;
-    border-radius: 12px;
-    font-weight: 600;
-    font-size: 1rem;
+    border-radius: 16px;
+    font-weight: 700;
+    font-size: 1.05rem;
     cursor: pointer;
     transition: var(--transition);
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
+    box-shadow: var(--shadow-md);
+    letter-spacing: 0.5px;
 }
 
 .send-button:hover {
@@ -533,16 +604,19 @@ main {
     display: flex;
     justify-content: flex-end;
     gap: 10px;
+    flex-shrink: 0;
 }
 
 .control-button {
-    padding: 10px 20px;
+    padding: 12px 24px;
     background: white;
     border: 2px solid var(--border-color);
-    border-radius: 8px;
+    border-radius: 12px;
     cursor: pointer;
     transition: var(--transition);
-    font-size: 0.9rem;
+    font-size: 1rem;
+    font-weight: 600;
+    box-shadow: var(--shadow-sm);
 }
 
 .control-button:hover {
@@ -558,12 +632,14 @@ footer {
     background: var(--text-primary);
     color: white;
     text-align: center;
-    padding: 20px;
-    margin-top: 40px;
+    padding: 15px;
+    margin-top: 0;
+    flex-shrink: 0;
 }
 
 footer p {
-    font-size: 0.9rem;
+    font-size: 1rem;
+    font-weight: 500;
 }
 
 /* ===========================
@@ -609,12 +685,25 @@ footer p {
    =========================== */
 
 @media (max-width: 768px) {
+    .container {
+        padding: 0 15px;
+    }
+    
+    header {
+        padding: 20px 0;
+    }
+    
     header h1 {
         font-size: 1.5rem;
     }
     
+    main {
+        padding: 20px 0;
+    }
+    
     .main-layout {
-        gap: 20px;
+        gap: 15px;
+        height: auto;
     }
     
     .section-card {
@@ -624,10 +713,19 @@ footer p {
     .primary-emotion {
         flex-direction: column;
         text-align: center;
+        padding: 20px;
     }
     
     .emotion-emoji {
-        font-size: 4rem;
+        font-size: 3.5rem;
+    }
+    
+    .emotion-info h3 {
+        font-size: 1.5rem;
+    }
+    
+    .emotion-info p {
+        font-size: 1.1rem;
     }
     
     .chat-messages {
@@ -636,6 +734,14 @@ footer p {
     
     .message-content {
         max-width: 90%;
+    }
+    
+    .emotion-label .emoji {
+        font-size: 1.2rem;
+    }
+    
+    .emotion-label .name {
+        font-size: 0.85rem;
     }
 }
 
