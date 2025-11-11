@@ -339,7 +339,8 @@ function stopVoiceRecognition() {
 async function sendVoiceMessage(text) {
     if (!text || text.trim().length === 0) return;
     
-    showLoading(true);
+    // 타이핑 중 메시지 추가
+    const typingMessageId = addTypingIndicator();
     voiceStatusText.textContent = 'AI가 응답 생성 중...';
     
     try {
@@ -361,8 +362,11 @@ async function sendVoiceMessage(text) {
         
         const data = await response.json();
         
-        // AI 응답만 채팅창에 표시
-        addMessageToChat('ai', data.message);
+        // 타이핑 인디케이터 제거
+        removeTypingIndicator(typingMessageId);
+        
+        // AI 응답을 타이핑 효과로 표시
+        await addMessageWithTyping('ai', data.message);
         
         if (data.detected_emotions) {
             console.log('📝 텍스트 감정 분석:', data.detected_emotions);
@@ -372,10 +376,9 @@ async function sendVoiceMessage(text) {
         
     } catch (error) {
         console.error('음성 메시지 전송 실패:', error);
+        removeTypingIndicator(typingMessageId);
         addMessageToChat('ai', '죄송합니다. 음성 처리 중 오류가 발생했습니다. 😔');
         voiceStatusText.textContent = '오류 발생 - 다시 말씀해주세요.';
-    } finally {
-        showLoading(false);
     }
 }
 
@@ -407,8 +410,8 @@ async function sendMessage() {
     // 전송 버튼 비활성화
     sendButton.disabled = true;
     
-    // 로딩 표시
-    showLoading(true);
+    // 타이핑 중 메시지 추가
+    const typingMessageId = addTypingIndicator();
     
     try {
         const response = await fetch('/api/chat', {
@@ -428,8 +431,11 @@ async function sendMessage() {
         
         const data = await response.json();
         
-        // AI 응답 표시
-        addMessageToChat('ai', data.message);
+        // 타이핑 인디케이터 제거
+        removeTypingIndicator(typingMessageId);
+        
+        // AI 응답을 타이핑 효과로 표시
+        await addMessageWithTyping('ai', data.message);
         
         // 텍스트 감정 분석 결과 있으면 업데이트
         if (data.detected_emotions) {
@@ -438,11 +444,9 @@ async function sendMessage() {
         
     } catch (error) {
         console.error('메시지 전송 실패:', error);
+        removeTypingIndicator(typingMessageId);
         addMessageToChat('ai', '죄송합니다. 일시적인 오류가 발생했습니다. 다시 시도해주세요. 😔');
     } finally {
-        // 로딩 숨기기
-        showLoading(false);
-        
         // 전송 버튼 활성화
         sendButton.disabled = false;
         
@@ -470,6 +474,83 @@ function addMessageToChat(sender, message) {
     
     // 스크롤을 최하단으로
     chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+// 타이핑 인디케이터 추가
+function addTypingIndicator() {
+    const messageDiv = document.createElement('div');
+    const typingId = 'typing-' + Date.now();
+    messageDiv.id = typingId;
+    messageDiv.className = 'message ai-message typing-indicator-message';
+    
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'message-content';
+    
+    contentDiv.innerHTML = `
+        <strong>AI 상담사</strong>
+        <div class="typing-indicator">
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
+    `;
+    
+    messageDiv.appendChild(contentDiv);
+    chatMessages.appendChild(messageDiv);
+    
+    // 스크롤을 최하단으로
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+    
+    return typingId;
+}
+
+// 타이핑 인디케이터 제거
+function removeTypingIndicator(typingId) {
+    const typingElement = document.getElementById(typingId);
+    if (typingElement) {
+        typingElement.remove();
+    }
+}
+
+// 타이핑 효과로 메시지 추가
+async function addMessageWithTyping(sender, message) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${sender}-message`;
+    
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'message-content';
+    
+    const senderName = sender === 'user' ? '나' : 'AI 상담사';
+    
+    contentDiv.innerHTML = `
+        <strong>${senderName}</strong>
+        <p class="typing-text"></p>
+    `;
+    
+    messageDiv.appendChild(contentDiv);
+    chatMessages.appendChild(messageDiv);
+    
+    // 타이핑 효과
+    const textElement = contentDiv.querySelector('.typing-text');
+    const text = escapeHtml(message);
+    let index = 0;
+    
+    return new Promise((resolve) => {
+        const typingSpeed = 30; // 30ms per character
+        
+        const typeInterval = setInterval(() => {
+            if (index < text.length) {
+                textElement.textContent += text.charAt(index);
+                index++;
+                
+                // 스크롤을 최하단으로
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            } else {
+                clearInterval(typeInterval);
+                resolve();
+            }
+        }, typingSpeed);
+    });
 }
 
 function escapeHtml(text) {
