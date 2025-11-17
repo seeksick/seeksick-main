@@ -445,6 +445,9 @@ function stopVoiceRecognition() {
 async function sendVoiceMessage(text, audioPayload = null) {
     if (!text || text.trim().length === 0) return;
     
+    // 음성으로 인식된 텍스트도 채팅창에 사용자 메시지로 표시
+    addMessageToChat('user', text);
+    
     // 타이핑 중 메시지 추가
     const typingMessageId = addTypingIndicator();
     voiceStatusText.textContent = 'AI가 응답 생성 중...';
