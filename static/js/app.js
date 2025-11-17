@@ -25,6 +25,13 @@ let isListening = false;
 let silenceTimer = null;
 let interimTranscript = '';
 let finalTranscript = '';
+let audioStream = null;
+let audioContext = null;
+let audioSourceNode = null;
+let audioProcessorNode = null;
+let recordedAudioChunks = [];
+let isAudioCaptureReady = false;
+let isRecordingAudio = false;
 
 // ===========================
 // DOM 요소
@@ -248,10 +255,13 @@ function initSpeechRecognition() {
             clearTimeout(silenceTimer);
             
             // 1초 침묵 후 전송
-            silenceTimer = setTimeout(() => {
-                if (finalTranscript.trim()) {
-                    sendVoiceMessage(finalTranscript.trim());
+            silenceTimer = setTimeout(async () => {
+                const trimmed = finalTranscript.trim();
+                if (trimmed) {
+                    const audioPayload = await finalizeAudioCapture();
+                    await sendVoiceMessage(trimmed, audioPayload);
                     finalTranscript = '';
+                    startAudioCapture();
                 }
             }, 1000);
         }
@@ -290,24 +300,116 @@ function initSpeechRecognition() {
     };
     
     // 자동 시작
-    startVoiceRecognition();
+    startVoiceRecognition().catch(error => {
+        console.error('자동 음성 인식 시작 실패:', error);
+    });
+}
+
+async function ensureAudioCapture() {
+    if (isAudioCaptureReady) {
+        return;
+    }
+    
+    try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            throw new Error('브라우저가 오디오 캡처를 지원하지 않습니다.');
+        }
+        audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioContext = new AudioContext();
+        audioSourceNode = audioContext.createMediaStreamSource(audioStream);
+        audioProcessorNode = audioContext.createScriptProcessor(4096, 1, 1);
+        audioProcessorNode.onaudioprocess = (event) => {
+            if (!isRecordingAudio) return;
+            const channelData = event.inputBuffer.getChannelData(0);
+            recordedAudioChunks.push(new Float32Array(channelData));
+        };
+        audioSourceNode.connect(audioProcessorNode);
+        audioProcessorNode.connect(audioContext.destination);
+        isAudioCaptureReady = true;
+        console.log('🎧 오디오 캡처 준비 완료');
+    } catch (error) {
+        console.error('오디오 캡처 초기화 실패:', error);
+        throw error;
+    }
+}
+
+function startAudioCapture() {
+    if (!isAudioCaptureReady || !audioProcessorNode) return;
+    if (audioContext && audioContext.state === 'suspended') {
+        audioContext.resume();
+    }
+    recordedAudioChunks = [];
+    isRecordingAudio = true;
+}
+
+function stopAudioCapture() {
+    isRecordingAudio = false;
+    recordedAudioChunks = [];
+}
+
+async function finalizeAudioCapture() {
+    if (!isAudioCaptureReady || recordedAudioChunks.length === 0) {
+        return null;
+    }
+    
+    isRecordingAudio = false;
+    const mergedAudio = mergeAudioChunks(recordedAudioChunks);
+    recordedAudioChunks = [];
+    
+    return {
+        data: float32ToBase64(mergedAudio),
+        sampleRate: audioContext ? audioContext.sampleRate : 16000
+    };
+}
+
+function mergeAudioChunks(chunks) {
+    const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+    const merged = new Float32Array(totalLength);
+    let offset = 0;
+    
+    chunks.forEach(chunk => {
+        merged.set(chunk, offset);
+        offset += chunk.length;
+    });
+    
+    return merged;
+}
+
+function float32ToBase64(float32Array) {
+    const uint8Array = new Uint8Array(float32Array.buffer);
+    let binary = '';
+    uint8Array.forEach(byte => {
+        binary += String.fromCharCode(byte);
+    });
+    return btoa(binary);
 }
 
 function toggleVoiceRecognition() {
     if (isListening) {
         stopVoiceRecognition();
     } else {
-        startVoiceRecognition();
+        startVoiceRecognition().catch(error => {
+            console.error('음성 인식 시작 실패:', error);
+        });
     }
 }
 
-function startVoiceRecognition() {
+async function startVoiceRecognition() {
     if (!recognition) {
         console.error('음성 인식이 초기화되지 않았습니다.');
         return;
     }
     
     try {
+        await ensureAudioCapture();
+    } catch (error) {
+        voiceStatusText.textContent = '마이크 권한이 필요합니다.';
+        throw error;
+    }
+    
+    try {
+        startAudioCapture();
         recognition.start();
         isListening = true;
         
@@ -326,6 +428,10 @@ function stopVoiceRecognition() {
     
     recognition.stop();
     isListening = false;
+    stopAudioCapture();
+    if (audioContext && audioContext.state === 'running') {
+        audioContext.suspend();
+    }
     
     // UI 업데이트
     voiceToggle.classList.remove('active');
@@ -336,7 +442,7 @@ function stopVoiceRecognition() {
     console.log('⏸️ 실시간 음성 인식 중지');
 }
 
-async function sendVoiceMessage(text) {
+async function sendVoiceMessage(text, audioPayload = null) {
     if (!text || text.trim().length === 0) return;
     
     // 타이핑 중 메시지 추가
@@ -352,7 +458,8 @@ async function sendVoiceMessage(text) {
             },
             body: JSON.stringify({ 
                 message: text,
-                is_voice: true  // 음성 입력 플래그 (터미널에만 로그)
+                is_voice: true,  // 음성 입력 플래그 (터미널에만 로그)
+                audio: audioPayload
             })
         });
         

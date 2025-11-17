@@ -20,6 +20,8 @@ from datetime import datetime
 from openai import OpenAI
 import cv2
 import os
+import base64
+import librosa
 from dotenv import load_dotenv
 
 # 환경변수 로드
@@ -262,7 +264,7 @@ class RealtimeEmotionService:
             
             # 2. 음성 감정 분석 (audio_data가 있으면)
             if audio_data is not None and self.models_loaded:
-                voice_probs = self.voice_analyzer.analyze_audio(audio_data)
+                voice_probs = self.voice_analyzer.analyze_voice(audio_data)
                 if voice_probs is not None:
                     self.late_fusion.add_voice_emotion(voice_probs)
                     result["voice"] = {
@@ -340,6 +342,33 @@ class RealtimeEmotionService:
 
 # 전역 서비스 인스턴스
 emotion_service = RealtimeEmotionService()
+
+
+def decode_audio_payload(audio_payload):
+    """프론트엔드에서 전송된 오디오 페이로드를 numpy 배열로 변환"""
+    if not audio_payload:
+        return None
+    
+    data = audio_payload.get('data')
+    if not data:
+        return None
+    
+    try:
+        audio_bytes = base64.b64decode(data)
+        audio_array = np.frombuffer(audio_bytes, dtype=np.float32)
+        if audio_array.size == 0:
+            return None
+        
+        sample_rate = audio_payload.get('sampleRate') or audio_payload.get('sample_rate')
+        target_rate = getattr(getattr(emotion_service, 'voice_analyzer', None), 'sample_rate', 16000)
+        
+        if sample_rate and sample_rate != target_rate:
+            audio_array = librosa.resample(audio_array, orig_sr=float(sample_rate), target_sr=float(target_rate))
+        
+        return audio_array.astype(np.float32)
+    except Exception as e:
+        logger.error(f"오디오 데이터 디코딩 실패: {e}")
+        return None
 
 
 def get_chatgpt_response(user_message: str, fusion_emotions: dict, modality_emotions: dict = None) -> str:
@@ -482,10 +511,12 @@ def chat():
             return jsonify({"error": "메시지가 비어있습니다."}), 400
         
         modality_emotions = None
+        audio_array = None
         
         if is_voice:
             # 음성 입력: 3개 모달리티 모두 사용
-            modality_emotions = emotion_service.process_voice_input(user_message)
+            audio_array = decode_audio_payload(data.get('audio'))
+            modality_emotions = emotion_service.process_voice_input(user_message, audio_array)
         else:
             # 텍스트 입력: 텍스트만 사용
             emotion_service.process_text_input(user_message)
@@ -572,4 +603,3 @@ if __name__ == '__main__':
         logger.info("\n사용자 중단")
     finally:
         on_shutdown()
-
