@@ -547,6 +547,8 @@ async function addMessageWithTyping(sender, message) {
                 chatMessages.scrollTop = chatMessages.scrollHeight;
             } else {
                 clearInterval(typeInterval);
+                // 타이핑이 끝나면 깜빡이는 커서를 제거하기 위해 클래스 제거
+                textElement.classList.remove('typing-text');
                 resolve();
             }
         }, typingSpeed);
@@ -638,4 +640,3 @@ if (window.location.hostname === 'localhost' || window.location.hostname === '12
 }
 
 console.log('✅ app.js 로드 완료');
-
