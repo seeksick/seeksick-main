@@ -128,9 +128,12 @@
                     <div id="chat-messages" class="chat-messages">
                         <div class="message ai-message">
                             <div class="message-content">
-                                <strong>AI 상담사</strong>
-                                <p>안녕하세요! 저는 당신의 감정을 이해하고 함께 나누고 싶은 AI 상담사입니다. 
-                                   편안하게 이야기해주세요. 어떤 일이든 함께 나눌 수 있습니다. 😊</p>
+                                <div class="message-sender">AI 상담사</div>
+                                <div class="message-bubble">
+                                    <p class="message-text">안녕하세요! 저는 당신의 감정을 이해하고 함께 나누고 싶은 AI 상담사입니다. 
+                                       편안하게 이야기해주세요. 어떤 일이든 함께 나눌 수 있습니다. 😊</p>
+                                    <span class="message-time">--:--</span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -193,4 +196,3 @@
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html>
-

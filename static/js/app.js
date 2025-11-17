@@ -76,6 +76,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // 실시간 음성 인식 초기화 및 자동 시작
     initSpeechRecognition();
     
+    const initialTime = chatMessages.querySelector('.message-time');
+    if (initialTime && initialTime.textContent === '--:--') {
+        initialTime.textContent = formatMessageTime();
+    }
+    
     console.log('✅ 앱 초기화 완료');
 });
 
@@ -444,9 +449,10 @@ function stopVoiceRecognition() {
 
 async function sendVoiceMessage(text, audioPayload = null) {
     if (!text || text.trim().length === 0) return;
+    const timestamp = new Date();
     
     // 음성으로 인식된 텍스트도 채팅창에 사용자 메시지로 표시
-    addMessageToChat('user', text);
+    addMessageToChat('user', text, timestamp);
     
     // 타이핑 중 메시지 추가
     const typingMessageId = addTypingIndicator();
@@ -476,7 +482,7 @@ async function sendVoiceMessage(text, audioPayload = null) {
         removeTypingIndicator(typingMessageId);
         
         // AI 응답을 타이핑 효과로 표시
-        await addMessageWithTyping('ai', data.message);
+        await addMessageWithTyping('ai', data.message, new Date());
         
         if (data.detected_emotions) {
             console.log('📝 텍스트 감정 분석:', data.detected_emotions);
@@ -504,6 +510,54 @@ function handleKeyPress(event) {
     }
 }
 
+function formatMessageTime(date = new Date()) {
+    return date.toLocaleTimeString('ko-KR', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+    });
+}
+
+function insertMessageElement(element) {
+    const typingElement = document.querySelector('.typing-indicator-message');
+    if (typingElement) {
+        chatMessages.insertBefore(element, typingElement);
+    } else {
+        chatMessages.appendChild(element);
+    }
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function createMessageStructure(sender, timestamp = new Date()) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${sender}-message`;
+    
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'message-content';
+    
+    const senderLabel = document.createElement('div');
+    senderLabel.className = 'message-sender';
+    senderLabel.textContent = sender === 'user' ? '나' : 'AI 상담사';
+    contentDiv.appendChild(senderLabel);
+    
+    const bubble = document.createElement('div');
+    bubble.className = 'message-bubble';
+    
+    const textElement = document.createElement('p');
+    textElement.className = 'message-text';
+    bubble.appendChild(textElement);
+    
+    const timeElement = document.createElement('span');
+    timeElement.className = 'message-time';
+    timeElement.textContent = formatMessageTime(timestamp);
+    bubble.appendChild(timeElement);
+    
+    contentDiv.appendChild(bubble);
+    messageDiv.appendChild(contentDiv);
+    
+    return { messageDiv, textElement };
+}
+
 async function sendMessage() {
     const message = chatInput.value.trim();
     
@@ -512,7 +566,8 @@ async function sendMessage() {
     }
     
     // 사용자 메시지 표시
-    addMessageToChat('user', message);
+    const userTimestamp = new Date();
+    addMessageToChat('user', message, userTimestamp);
     
     // 입력창 초기화
     chatInput.value = '';
@@ -545,7 +600,7 @@ async function sendMessage() {
         removeTypingIndicator(typingMessageId);
         
         // AI 응답을 타이핑 효과로 표시
-        await addMessageWithTyping('ai', data.message);
+        await addMessageWithTyping('ai', data.message, new Date());
         
         // 텍스트 감정 분석 결과 있으면 업데이트
         if (data.detected_emotions) {
@@ -565,52 +620,29 @@ async function sendMessage() {
     }
 }
 
-function addMessageToChat(sender, message) {
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `message ${sender}-message`;
-    
-    const contentDiv = document.createElement('div');
-    contentDiv.className = 'message-content';
-    
-    const senderName = sender === 'user' ? '나' : 'AI 상담사';
-    
-    contentDiv.innerHTML = `
-        <strong>${senderName}</strong>
-        <p>${escapeHtml(message)}</p>
-    `;
-    
-    messageDiv.appendChild(contentDiv);
-    chatMessages.appendChild(messageDiv);
-    
-    // 스크롤을 최하단으로
-    chatMessages.scrollTop = chatMessages.scrollHeight;
+function addMessageToChat(sender, message, timestamp = new Date()) {
+    const { messageDiv, textElement } = createMessageStructure(sender, timestamp);
+    textElement.textContent = message;
+    insertMessageElement(messageDiv);
 }
 
 // 타이핑 인디케이터 추가
 function addTypingIndicator() {
-    const messageDiv = document.createElement('div');
+    const { messageDiv, textElement } = createMessageStructure('ai', new Date());
     const typingId = 'typing-' + Date.now();
     messageDiv.id = typingId;
-    messageDiv.className = 'message ai-message typing-indicator-message';
+    messageDiv.classList.add('typing-indicator-message');
     
-    const contentDiv = document.createElement('div');
-    contentDiv.className = 'message-content';
-    
-    contentDiv.innerHTML = `
-        <strong>AI 상담사</strong>
-        <div class="typing-indicator">
-            <span></span>
-            <span></span>
-            <span></span>
-        </div>
+    textElement.textContent = '';
+    const indicatorWrapper = document.createElement('span');
+    indicatorWrapper.className = 'typing-indicator';
+    indicatorWrapper.innerHTML = `
+        <span></span>
+        <span></span>
+        <span></span>
     `;
-    
-    messageDiv.appendChild(contentDiv);
-    chatMessages.appendChild(messageDiv);
-    
-    // 스크롤을 최하단으로
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-    
+    textElement.appendChild(indicatorWrapper);
+    insertMessageElement(messageDiv);
     return typingId;
 }
 
@@ -623,52 +655,28 @@ function removeTypingIndicator(typingId) {
 }
 
 // 타이핑 효과로 메시지 추가
-async function addMessageWithTyping(sender, message) {
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `message ${sender}-message`;
+async function addMessageWithTyping(sender, message, timestamp = new Date()) {
+    const { messageDiv, textElement } = createMessageStructure(sender, timestamp);
+    textElement.classList.add('typing-text');
+    insertMessageElement(messageDiv);
     
-    const contentDiv = document.createElement('div');
-    contentDiv.className = 'message-content';
-    
-    const senderName = sender === 'user' ? '나' : 'AI 상담사';
-    
-    contentDiv.innerHTML = `
-        <strong>${senderName}</strong>
-        <p class="typing-text"></p>
-    `;
-    
-    messageDiv.appendChild(contentDiv);
-    chatMessages.appendChild(messageDiv);
-    
-    // 타이핑 효과
-    const textElement = contentDiv.querySelector('.typing-text');
-    const text = escapeHtml(message);
+    const text = message;
     let index = 0;
     
     return new Promise((resolve) => {
-        const typingSpeed = 30; // 30ms per character
-        
+        const typingSpeed = 30;
         const typeInterval = setInterval(() => {
             if (index < text.length) {
                 textElement.textContent += text.charAt(index);
                 index++;
-                
-                // 스크롤을 최하단으로
                 chatMessages.scrollTop = chatMessages.scrollHeight;
             } else {
                 clearInterval(typeInterval);
-                // 타이핑이 끝나면 깜빡이는 커서를 제거하기 위해 클래스 제거
                 textElement.classList.remove('typing-text');
                 resolve();
             }
         }, typingSpeed);
     });
-}
-
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
 }
 
 async function clearChat() {
@@ -683,15 +691,8 @@ async function clearChat() {
         
         if (response.ok) {
             // 채팅 화면 초기화
-            chatMessages.innerHTML = `
-                <div class="message ai-message">
-                    <div class="message-content">
-                        <strong>AI 상담사</strong>
-                        <p>안녕하세요! 저는 당신의 감정을 이해하고 함께 나누고 싶은 AI 상담사입니다. 
-                           편안하게 이야기해주세요. 어떤 일이든 함께 나눌 수 있습니다. 😊</p>
-                    </div>
-                </div>
-            `;
+            chatMessages.innerHTML = '';
+            addMessageToChat('ai', '안녕하세요! 저는 당신의 감정을 이해하고 함께 나누고 싶은 AI 상담사입니다. 편안하게 이야기해주세요. 어떤 일이든 함께 나눌 수 있습니다. 😊');
             
             console.log('✅ 채팅 히스토리 초기화 완료');
         }
