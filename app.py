@@ -378,6 +378,8 @@ def get_chatgpt_response(user_message: str, fusion_emotions: dict, modality_emot
         return "ChatGPT 기능을 사용하려면 .env 파일에 OPENAI_API_KEY를 설정하세요."
     
     try:
+        modality_emotions = modality_emotions or {}
+        
         # Late Fusion 결과 파싱
         primary_emotion = max(fusion_emotions, key=fusion_emotions.get)
         emotion_confidence = fusion_emotions[primary_emotion]
@@ -385,29 +387,62 @@ def get_chatgpt_response(user_message: str, fusion_emotions: dict, modality_emot
         # 모든 감정 확률 정렬
         sorted_emotions = sorted(fusion_emotions.items(), key=lambda x: x[1], reverse=True)
         
-        # 감정 컨텍스트 생성
-        emotion_context = f"\n[Late Fusion 감정 분석 결과]\n"
-        emotion_context += f"주요 감정: {primary_emotion} ({emotion_confidence:.1%})\n"
-        emotion_context += "전체 감정 분포:\n"
-        for emotion, prob in sorted_emotions:
-            emotion_context += f"  - {emotion}: {prob:.1%}\n"
+        # 모달리티별 상세 정보
+        modality_labels = {
+            "face": ("얼굴", "ResNet18 표정 인식"),
+            "voice": ("음성", "Wav2Vec2 음성 정서"),
+            "text": ("텍스트", "KoBERT 의미 분석")
+        }
+        modality_lines = []
+        for key, (label, desc) in modality_labels.items():
+            data = modality_emotions.get(key)
+            if data:
+                top_label = max(data, key=data.get)
+                sorted_modalities = sorted(data.items(), key=lambda x: x[1], reverse=True)
+                distribution = ", ".join(
+                    [f"{emo} {prob:.0%}" for emo, prob in sorted_modalities]
+                )
+                modality_lines.append(
+                    f"- {label} ({desc}): {top_label} ({data[top_label]:.1%}) | 분포 {distribution}"
+                )
+            else:
+                modality_lines.append(f"- {label} ({desc}): 최근 데이터 없음")
         
-        # 모달리티별 상세 정보 (음성 입력 시)
-        if modality_emotions:
-            emotion_context += "\n[모달리티별 분석]\n"
-            if modality_emotions.get("face"):
-                face_top = max(modality_emotions["face"], key=modality_emotions["face"].get)
-                emotion_context += f"얼굴 표정: {face_top} ({modality_emotions['face'][face_top]:.1%})\n"
-            if modality_emotions.get("voice"):
-                voice_top = max(modality_emotions["voice"], key=modality_emotions["voice"].get)
-                emotion_context += f"음성 톤: {voice_top} ({modality_emotions['voice'][voice_top]:.1%})\n"
-            if modality_emotions.get("text"):
-                text_top = max(modality_emotions["text"], key=modality_emotions["text"].get)
-                emotion_context += f"텍스트 내용: {text_top} ({modality_emotions['text'][text_top]:.1%})\n"
+        # 감정 및 시스템 컨텍스트 생성
+        emotion_brief_lines = [
+            "[현재 감정 브리핑]",
+            f"- 주요 감정: {primary_emotion} ({emotion_confidence:.1%})",
+            "- 전체 감정 분포:"
+        ]
+        emotion_brief_lines.extend([f"  * {emotion}: {prob:.1%}" for emotion, prob in sorted_emotions])
+        emotion_brief_lines.append("- 모달 근거:")
+        emotion_brief_lines.extend([f"  * {line}" for line in modality_lines])
+        emotion_context = "\n".join(emotion_brief_lines)
+        
+        guideline_text = """
+[응답 지침]
+1. 위 감정 브리핑과 대화 히스토리를 함께 참고하여 맥락을 이어가세요.
+2. 사용자가 얼굴/음성/텍스트 근거를 묻거나 감정 상태를 확인하면 해당 모달리티 라인을 자연스럽게 인용하고, 어떤 모델의 관찰인지 명시하세요.
+3. Late Fusion 결과는 결론이 아니라 단서라는 점을 설명하고, 확률 수치나 모달리티 부재 여부를 솔직하게 공유하세요.
+4. 사용자의 표현, 과거 메시지, 현재 감정 신호를 묶어 개인화된 공감과 제안을 제공하세요.
+5. 데이터가 오래되었거나 불확실하면 '최근 관측' 여부를 언급하고 추가 질문으로 대화를 이어가세요.
+""".strip()
+        
+        system_context = f"""{CHAT_PERSONALITY}
+
+[시스템 정보]
+- 당신은 Late Fusion 기반 실시간 멀티모달 감정 분석 상담사입니다.
+- 센서 조합: 얼굴(ResNet18), 음성(Wav2Vec2), 텍스트(KoBERT) 분석을 {FUSION_INTERVAL}초 간격으로 융합합니다.
+- 사용자는 웹캠/마이크/텍스트 입력으로 감정을 공유하며, 당신은 상담사이자 상황 설명자입니다.
+
+{emotion_context}
+
+{guideline_text}
+"""
         
         # 대화 히스토리 준비
         messages = [
-            {"role": "system", "content": CHAT_PERSONALITY + emotion_context}
+            {"role": "system", "content": system_context}
         ]
         
         # 최근 3개 대화만 포함
@@ -520,6 +555,10 @@ def chat():
         else:
             # 텍스트 입력: 텍스트만 사용
             emotion_service.process_text_input(user_message)
+        
+        if modality_emotions is None:
+            # 최신 모달리티 데이터를 모두 전달하여 컨텍스트를 확보
+            modality_emotions = emotion_service.get_multimodal_emotions()
         
         # Late Fusion 결과 가져오기
         fusion_emotions = emotion_service.get_latest_emotions()

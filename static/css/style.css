@@ -389,7 +389,7 @@ main {
 .chat-input-area {
     display: flex;
     gap: 12px;
-    align-items: flex-end;
+    align-items: stretch;
 }
 
 .chat-input-area textarea {
@@ -415,7 +415,7 @@ main {
     border: none;
     color: white;
     font-weight: 700;
-    padding: 18px 32px;
+    padding: 0 32px;
     border-radius: 22px;
     background: linear-gradient(135deg, #6366f1 0%, #ec4899 100%);
     box-shadow: 0 20px 40px rgba(99, 102, 241, 0.35);
@@ -423,7 +423,9 @@ main {
     transition: var(--transition);
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 8px;
+    min-height: 110px;
 }
 
 .send-button:hover {
