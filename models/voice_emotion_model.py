@@ -16,6 +16,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import librosa
 from typing import Optional, Dict, Any
+from transformers import Wav2Vec2Config, Wav2Vec2Model
 import sounddevice as sd
 from scipy.io import wavfile
 
@@ -90,6 +91,85 @@ class VoiceEmotionCNN(nn.Module):
         x = self.fc3(x)
         
         return x
+
+
+class LearnablePositionalEncoding(nn.Module):
+    """학습 가능한 포지셔널 인코딩"""
+    
+    def __init__(self, d_model: int, max_len: int = 5000):
+        super(LearnablePositionalEncoding, self).__init__()
+        self.pe = nn.Parameter(torch.zeros(max_len, 1, d_model))
+    
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        seq_len = x.size(1)
+        positional = self.pe[:seq_len].transpose(0, 1)  # (1, seq_len, d_model)
+        return x + positional
+
+
+class VoiceEmotionWav2Vec2(nn.Module):
+    """Wav2Vec2 + Transformer 기반 음성 감정 분류 모델"""
+    
+    def __init__(
+        self,
+        num_emotions: int = 5,
+        transformer_config: Optional[Dict[str, Any]] = None
+    ):
+        super(VoiceEmotionWav2Vec2, self).__init__()
+        
+        transformer_config = transformer_config or {}
+        self.wav2vec2 = Wav2Vec2Model(Wav2Vec2Config())
+        
+        d_model = transformer_config.get("d_model", 512)
+        nhead = transformer_config.get("nhead", 8)
+        num_layers = transformer_config.get("num_layers", 4)
+        dropout_rate = transformer_config.get("dropout", 0.1)
+        
+        # Wav2Vec2 출력(768)을 Transformer 입력 차원으로 투영
+        self.input_projection = nn.Linear(
+            self.wav2vec2.config.hidden_size,
+            d_model
+        )
+        self.pos_encoding = LearnablePositionalEncoding(d_model)
+        
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=d_model,
+            nhead=nhead,
+            dropout=dropout_rate,
+            batch_first=True
+        )
+        self.transformer = nn.TransformerEncoder(
+            encoder_layer,
+            num_layers=num_layers
+        )
+        
+        hidden_dim = max(d_model // 2, num_emotions)
+        bottleneck_dim = max(d_model // 4, num_emotions)
+        self.classifier = nn.Sequential(
+            nn.LayerNorm(d_model),
+            nn.Dropout(dropout_rate),
+            nn.Linear(d_model, hidden_dim),
+            nn.GELU(),
+            nn.Dropout(dropout_rate),
+            nn.Linear(hidden_dim, bottleneck_dim),
+            nn.GELU(),
+            nn.Dropout(dropout_rate),
+            nn.Linear(bottleneck_dim, num_emotions)
+        )
+    
+    def forward(self, audio_inputs: torch.Tensor, attention_mask: Optional[torch.Tensor] = None):
+        """음성 입력 텐서로부터 감정 로짓 계산"""
+        outputs = self.wav2vec2(
+            audio_inputs,
+            attention_mask=attention_mask
+        )
+        hidden_states = outputs.last_hidden_state  # (batch, seq_len, hidden)
+        
+        projected = self.input_projection(hidden_states)
+        projected = self.pos_encoding(projected)
+        encoded = self.transformer(projected)
+        pooled = encoded.mean(dim=1)
+        logits = self.classifier(pooled)
+        return logits
 
 class AudioFeatureExtractor:
     """오디오 특징 추출기"""
@@ -194,6 +274,7 @@ class VoiceEmotionAnalyzer:
         self.sample_rate = sample_rate
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = None
+        self.model_variant = None  # wav2vec2 또는 cnn
         self.feature_extractor = AudioFeatureExtractor(sample_rate)
         self.emotions = ['happy', 'depressed', 'surprised', 'angry', 'neutral']
         
@@ -202,46 +283,67 @@ class VoiceEmotionAnalyzer:
     def _load_model(self):
         """음성 감정 분석 모델 로드"""
         try:
-            if os.path.exists(self.model_path):
-                # 모델 파일이 존재하는 경우
-                checkpoint = torch.load(self.model_path, map_location=self.device)
-                
-                if isinstance(checkpoint, dict):
-                    # 체크포인트 형태
-                    if 'model_state_dict' in checkpoint:
-                        self.model = VoiceEmotionCNN()
-                        self.model.load_state_dict(checkpoint['model_state_dict'])
-                    elif 'model' in checkpoint:
-                        self.model = checkpoint['model']
-                    else:
-                        # state_dict만 있는 경우
-                        self.model = VoiceEmotionCNN()
-                        self.model.load_state_dict(checkpoint)
-                else:
-                    # 전체 모델이 저장된 경우
-                    self.model = checkpoint
-                
-                logger.info(f"음성 감정 모델을 로드했습니다: {self.model_path}")
-            else:
-                # 모델 파일이 없는 경우 기본 모델 사용
-                logger.warning(f"음성 감정 모델 파일을 찾을 수 없습니다: {self.model_path}")
-                logger.info("기본 CNN 모델을 초기화합니다.")
-                self.model = VoiceEmotionCNN()
-                
-            self.model.to(self.device)
-            self.model.eval()
+            checkpoint = None
+            state_dict = None
+            is_wav2vec2_checkpoint = False
             
-        except Exception as e:
-            logger.error(f"음성 감정 모델 로드 실패: {e}")
-            # 백업으로 기본 모델 사용
-            try:
+            if os.path.exists(self.model_path):
+                checkpoint = torch.load(self.model_path, map_location=self.device)
+                if isinstance(checkpoint, dict):
+                    if 'model_state_dict' in checkpoint:
+                        state_dict = checkpoint['model_state_dict']
+                    elif 'state_dict' in checkpoint:
+                        state_dict = checkpoint['state_dict']
+                    else:
+                        state_dict = checkpoint
+                else:
+                    # 전체 모델이 저장된 경우 (직렬화된 nn.Module)
+                    self.model = checkpoint
+                    if hasattr(self.model, 'wav2vec2'):
+                        self.model_variant = "wav2vec2"
+                    else:
+                        self.model_variant = "cnn"
+            else:
+                logger.warning(f"음성 감정 모델 파일을 찾을 수 없습니다: {self.model_path}")
+            
+            if self.model is None and state_dict is not None:
+                is_wav2vec2_checkpoint = any(
+                    key.startswith('wav2vec2.') for key in state_dict.keys()
+                )
+                if is_wav2vec2_checkpoint:
+                    transformer_config = {}
+                    if isinstance(checkpoint, dict):
+                        transformer_config = checkpoint.get('model_config', {}) or {}
+                    try:
+                        self.model = VoiceEmotionWav2Vec2(
+                            num_emotions=len(self.emotions),
+                            transformer_config=transformer_config
+                        )
+                        self.model.load_state_dict(state_dict, strict=True)
+                        self.model_variant = "wav2vec2"
+                        logger.info("Wav2Vec2 기반 음성 감정 모델을 로드했습니다.")
+                    except Exception as wav_err:
+                        logger.error(f"Wav2Vec2 모델 로드 실패: {wav_err}")
+                        self.model = None
+                
+            if self.model is None:
+                # CNN 백업 모델
                 self.model = VoiceEmotionCNN()
+                if state_dict is not None and not is_wav2vec2_checkpoint:
+                    try:
+                        self.model.load_state_dict(state_dict)
+                    except Exception as cnn_err:
+                        logger.warning(f"CNN 가중치 로드 실패, 기본 가중치 사용: {cnn_err}")
+                self.model_variant = "cnn"
+                logger.info("CNN 백업 음성 모델을 사용합니다.")
+            
+            if self.model is not None:
                 self.model.to(self.device)
                 self.model.eval()
-                logger.info("백업 모델을 사용합니다.")
-            except Exception as backup_e:
-                logger.error(f"백업 모델 로드도 실패: {backup_e}")
-                self.model = None
+                
+        except Exception as e:
+            logger.error(f"음성 감정 모델 로드 실패: {e}")
+            self.model = None
     
     def analyze_voice(self, audio_data: np.ndarray) -> Optional[np.ndarray]:
         """음성 감정 분석"""
@@ -253,25 +355,44 @@ class VoiceEmotionAnalyzer:
             processed_audio = self.feature_extractor.preprocess_audio(
                 audio_data, target_length=self.sample_rate * 3  # 3초로 고정
             )
+            if self.model_variant == "wav2vec2":
+                return self._analyze_with_wav2vec2(processed_audio)
             
-            # 특징 추출 (여러 방법 시도)
+            # 특징 추출 (CNN 백업용)
             features = self._extract_features_for_model(processed_audio)
-            
             if features is None:
                 return None
             
-            # 텐서 변환
             input_tensor = torch.FloatTensor(features).unsqueeze(0).to(self.device)
-            
-            # 추론
             with torch.no_grad():
                 outputs = self.model(input_tensor)
                 probs = F.softmax(outputs, dim=1)[0].cpu().numpy()
-                
             return probs
             
         except Exception as e:
             logger.error(f"음성 감정 분석 실패: {e}")
+            return None
+    
+    def _analyze_with_wav2vec2(self, audio_data: np.ndarray) -> Optional[np.ndarray]:
+        """Wav2Vec2 기반 모델 추론"""
+        try:
+            audio_tensor = torch.tensor(
+                audio_data,
+                dtype=torch.float32,
+                device=self.device
+            ).unsqueeze(0)
+            attention_mask = torch.ones(
+                audio_tensor.shape,
+                dtype=torch.long,
+                device=self.device
+            )
+            
+            with torch.no_grad():
+                outputs = self.model(audio_tensor, attention_mask=attention_mask)
+                probs = F.softmax(outputs, dim=1)[0].cpu().numpy()
+            return probs
+        except Exception as e:
+            logger.error(f"Wav2Vec2 음성 감정 분석 실패: {e}")
             return None
     
     def _extract_features_for_model(self, audio_data: np.ndarray) -> Optional[np.ndarray]:
