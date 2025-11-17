@@ -371,6 +371,19 @@ main {
     min-height: 0;
 }
 
+.chat-section .section-card {
+    height: calc(100vh - 220px);
+    max-height: calc(100vh - 220px);
+    overflow: hidden;
+}
+
+@media (max-width: 1200px) {
+    .chat-section .section-card {
+        height: auto;
+        max-height: none;
+    }
+}
+
 .chat-messages::-webkit-scrollbar {
     width: 8px;
 }
