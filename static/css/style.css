@@ -135,7 +135,7 @@ main {
     gap: 25px;
     margin-bottom: 0;
     align-items: stretch;  /* 전체 높이 */
-    height: calc(100vh - 200px);  /* 헤더와 푸터 제외한 전체 높이 */
+    min-height: calc(100vh - 200px);  /* 콘텐츠가 많으면 자동으로 확장 */
 }
 
 @media (max-width: 1200px) {
@@ -810,4 +810,3 @@ footer p {
         justify-content: center;
     }
 }
-
